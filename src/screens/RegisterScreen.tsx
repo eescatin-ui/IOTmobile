@@ -11,6 +11,7 @@ import {
   Platform,
   ScrollView,
   Animated,
+  StatusBar,
 } from 'react-native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { registerUser } from '../utils/api';
@@ -26,24 +27,29 @@ type RegisterScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Register'>;
 };
 
-// Dark Violet Theme
+// VerdiX Green Security Theme
 const COLORS = {
-  bg: '#0D0B1E',
-  cardBg: '#1A1538',
-  border: 'rgba(139, 92, 246, 0.15)',
-  borderGlow: 'rgba(139, 92, 246, 0.3)',
-  accentViolet: '#8B5CF6',
-  accentVioletLight: '#A78BFA',
-  accentVioletDark: '#6D28D9',
-  accentPink: '#EC4899',
-  accentPinkLight: '#F472B6',
-  accentGreen: '#34D399',
-  accentRed: '#F87171',
-  accentAmber: '#FBBF24',
-  text: '#F5F3FF',
-  textSecondary: '#C4B5FD',
-  textMuted: '#8B7EC8',
-  surface: 'rgba(139, 92, 246, 0.08)',
+  bg: '#050B07',
+  bgSecondary: '#0E1C12',
+  bgElevated: '#0D1810',
+  bgGlass: 'rgba(10, 20, 14, 0.75)',
+  borderLight: 'rgba(34, 197, 94, 0.08)',
+  border: 'rgba(34, 197, 94, 0.15)',
+  borderGlow: 'rgba(34, 197, 94, 0.35)',
+  
+  primary: '#22C55E',
+  primaryLight: '#4ADE80',
+  primaryDark: '#16A34A',
+  primaryGlow: 'rgba(34, 197, 94, 0.35)',
+  primarySoft: 'rgba(34, 197, 94, 0.12)',
+  
+  success: '#22C55E',
+  warning: '#F59E0B',
+  danger: '#EF4444',
+  
+  textPrimary: '#F8FAFC',
+  textSecondary: '#94A3B8',
+  textTertiary: '#5B6E8C',
 };
 
 const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
@@ -57,31 +63,67 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
-  const shimmerAnim = useRef(new Animated.Value(0)).current;
-  const buttonPulseAnim = useRef(new Animated.Value(1)).current;
+  const heroPulse = useRef(new Animated.Value(1)).current;
   const shakeAnim = useRef(new Animated.Value(0)).current;
+  const ambientGlow = useRef(new Animated.Value(0)).current;
+  const strengthBarWidth = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: false }),
-      Animated.timing(slideAnim, { toValue: 0, duration: 500, useNativeDriver: false }),
+      Animated.timing(fadeAnim, { 
+        toValue: 1, 
+        duration: 700, 
+        useNativeDriver: true 
+      }),
+      Animated.spring(slideAnim, { 
+        toValue: 0, 
+        friction: 8, 
+        tension: 40, 
+        useNativeDriver: true 
+      }),
     ]).start();
 
-    Animated.loop(
-      Animated.timing(shimmerAnim, {
-        toValue: 1,
-        duration: 3000,
-        useNativeDriver: false,
-      })
-    ).start();
-
+    // Hero logo pulse
     Animated.loop(
       Animated.sequence([
-        Animated.timing(buttonPulseAnim, { toValue: 1.03, duration: 1500, useNativeDriver: false }),
-        Animated.timing(buttonPulseAnim, { toValue: 1, duration: 1500, useNativeDriver: false }),
+        Animated.timing(heroPulse, { 
+          toValue: 1.05, 
+          duration: 2000, 
+          useNativeDriver: true 
+        }),
+        Animated.timing(heroPulse, { 
+          toValue: 1, 
+          duration: 2000, 
+          useNativeDriver: true 
+        }),
+      ])
+    ).start();
+
+    // Ambient background glow
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(ambientGlow, { 
+          toValue: 1, 
+          duration: 4000, 
+          useNativeDriver: true 
+        }),
+        Animated.timing(ambientGlow, { 
+          toValue: 0.3, 
+          duration: 4000, 
+          useNativeDriver: true 
+        }),
       ])
     ).start();
   }, []);
+
+  useEffect(() => {
+    // Animate strength bar
+    Animated.timing(strengthBarWidth, {
+      toValue: passwordStrength / 5,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+  }, [passwordStrength]);
 
   const checkPasswordStrength = (pass: string) => {
     let strength = 0;
@@ -101,11 +143,11 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
 
   const triggerShake = () => {
     Animated.sequence([
-      Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: false }),
-      Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: false }),
-      Animated.timing(shakeAnim, { toValue: 6, duration: 50, useNativeDriver: false }),
-      Animated.timing(shakeAnim, { toValue: -6, duration: 50, useNativeDriver: false }),
-      Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: false }),
+      Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 6, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -6, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
     ]).start();
   };
 
@@ -134,9 +176,11 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
     try {
       const response = await registerUser(name, email.trim(), password, confirmPassword);
       if (response?.token) {
-        Alert.alert('Success', 'Account created successfully!', [
-          { text: 'OK', onPress: () => navigation.replace('Home') },
-        ]);
+        Alert.alert(
+          'Operator Registered',
+          'Your VerdiX security console account has been created.',
+          [{ text: 'Access Console', onPress: () => navigation.replace('Home') }],
+        );
       } else {
         const message =
           response?.message ||
@@ -148,43 +192,67 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
       }
     } catch (error) {
       console.error('Register error:', error);
-      setErrorMsg('Unable to connect to server. Check server URL.');
+      setErrorMsg('Unable to connect. Check server URL.');
       triggerShake();
     } finally {
       setLoading(false);
     }
   };
 
-  const shimmerPosition = shimmerAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['-100%', '200%'],
-  });
-
   const getStrengthColor = () => {
-    if (passwordStrength <= 1) return COLORS.accentRed;
-    if (passwordStrength <= 3) return COLORS.accentAmber;
-    return COLORS.accentGreen;
+    if (passwordStrength <= 1) return COLORS.danger;
+    if (passwordStrength <= 3) return COLORS.warning;
+    return COLORS.success;
   };
 
   const getStrengthLabel = () => {
     if (passwordStrength === 0) return '';
-    if (passwordStrength <= 1) return 'Weak';
-    if (passwordStrength <= 3) return 'Medium';
-    if (passwordStrength <= 4) return 'Strong';
-    return 'Very Strong';
+    if (passwordStrength <= 1) return 'vulnerable';
+    if (passwordStrength <= 3) return 'moderate';
+    if (passwordStrength <= 4) return 'strong';
+    return 'fortified';
   };
+
+  const getStrengthIcon = () => {
+    if (passwordStrength === 0) return '🔓';
+    if (passwordStrength <= 1) return '⚠️';
+    if (passwordStrength <= 3) return '🔐';
+    if (passwordStrength <= 4) return '🛡️';
+    return '🏰';
+  };
+
+  const getConfirmBorderColor = () => {
+    if (confirmPassword.length === 0) return COLORS.border;
+    return password === confirmPassword 
+      ? 'rgba(34, 197, 94, 0.4)' 
+      : 'rgba(239, 68, 68, 0.4)';
+  };
+
+  const glowOpacity = ambientGlow.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.3, 0.7],
+  });
+
+  const strengthWidthInterpolated = strengthBarWidth.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+  });
 
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
-      {/* Background glow */}
-      <View style={styles.bgGlow} />
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
+
+      {/* Ambient background elements */}
+      <Animated.View style={[styles.ambientOrb1, { opacity: glowOpacity }]} />
+      <Animated.View style={[styles.ambientOrb2, { opacity: glowOpacity }]} />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
         <Animated.View
           style={[
@@ -198,25 +266,25 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
             },
           ]}
         >
-          {/* Shimmer line */}
-          <View style={styles.shimmerLine}>
-            <Animated.View style={[styles.shimmerInner, { left: shimmerPosition }]} />
+          {/* Hero Logo Section */}
+          <View style={styles.heroSection}>
+            <Animated.View style={[styles.logoRing, { transform: [{ scale: heroPulse }] }]}>
+              <View style={styles.logoInner}>
+                <Text style={styles.logoIcon}>🛡️</Text>
+              </View>
+            </Animated.View>
           </View>
 
-          {/* Logo */}
-          <View style={styles.logoContainer}>
-            <View style={styles.logoCircle}>
-              <Text style={styles.logoIcon}>⚡</Text>
-            </View>
-          </View>
+          {/* Brand Title */}
+          <Text style={styles.title}>VerdiX</Text>
+          <Text style={styles.subtitle}>Register Operator</Text>
 
-          {/* Title */}
-          <Text style={styles.title}>Create Account</Text>
-          <Text style={styles.subtitle}>Register to access the AURA control system</Text>
+          {/* Divider */}
+          <View style={styles.divider} />
 
           {/* Full Name */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Full Name</Text>
+            <Text style={styles.label}>Operator Name</Text>
             <View style={styles.inputWrapper}>
               <TextInput
                 style={styles.input}
@@ -225,16 +293,17 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
                   setName(text);
                   setErrorMsg(null);
                 }}
-                placeholder="Enter your name"
-                placeholderTextColor={COLORS.textMuted}
+                placeholder="Enter operator name"
+                placeholderTextColor={COLORS.textTertiary}
                 autoCapitalize="words"
+                autoCorrect={false}
               />
             </View>
           </View>
 
           {/* Email */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email</Text>
+            <Text style={styles.label}>Email Address</Text>
             <View style={styles.inputWrapper}>
               <TextInput
                 style={styles.input}
@@ -243,10 +312,11 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
                   setEmail(text);
                   setErrorMsg(null);
                 }}
-                placeholder="you@example.com"
-                placeholderTextColor={COLORS.textMuted}
+                placeholder="operator@verdix.security"
+                placeholderTextColor={COLORS.textTertiary}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                autoCorrect={false}
               />
             </View>
           </View>
@@ -259,31 +329,33 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
                 style={styles.input}
                 value={password}
                 onChangeText={handlePasswordChange}
-                placeholder="Min. 6 characters"
-                placeholderTextColor={COLORS.textMuted}
+                placeholder="Minimum 6 characters"
+                placeholderTextColor={COLORS.textTertiary}
                 secureTextEntry
                 autoCapitalize="none"
               />
             </View>
+            
+            {/* Password Strength Indicator */}
             {password.length > 0 && (
               <View style={styles.strengthContainer}>
-                <View style={styles.strengthBar}>
-                  {[1, 2, 3, 4, 5].map((level) => (
-                    <View
-                      key={level}
-                      style={[
-                        styles.strengthSegment,
-                        {
-                          backgroundColor: level <= passwordStrength ? getStrengthColor() : 'rgba(255,255,255,0.08)',
-                          borderColor: level <= passwordStrength ? getStrengthColor() : COLORS.border,
-                        },
-                      ]}
-                    />
-                  ))}
+                <View style={styles.strengthHeader}>
+                  <Text style={styles.strengthIcon}>{getStrengthIcon()}</Text>
+                  <Text style={[styles.strengthLabel, { color: getStrengthColor() }]}>
+                    {getStrengthLabel()}
+                  </Text>
                 </View>
-                <Text style={[styles.strengthLabel, { color: getStrengthColor() }]}>
-                  {getStrengthLabel()}
-                </Text>
+                <View style={styles.strengthBarBg}>
+                  <Animated.View 
+                    style={[
+                      styles.strengthBarFill,
+                      { 
+                        width: strengthWidthInterpolated,
+                        backgroundColor: getStrengthColor(),
+                      },
+                    ]} 
+                  />
+                </View>
               </View>
             )}
           </View>
@@ -293,9 +365,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
             <Text style={styles.label}>Confirm Password</Text>
             <View style={[
               styles.inputWrapper,
-              confirmPassword.length > 0 && {
-                borderColor: password === confirmPassword ? 'rgba(52, 211, 153, 0.4)' : 'rgba(248, 113, 113, 0.4)',
-              },
+              { borderColor: getConfirmBorderColor() },
             ]}>
               <TextInput
                 style={styles.input}
@@ -305,59 +375,67 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
                   setErrorMsg(null);
                 }}
                 placeholder="Re-enter password"
-                placeholderTextColor={COLORS.textMuted}
+                placeholderTextColor={COLORS.textTertiary}
                 secureTextEntry
                 autoCapitalize="none"
               />
             </View>
             {confirmPassword.length > 0 && (
-              <Text style={[styles.matchIndicator, {
-                color: password === confirmPassword ? COLORS.accentGreen : COLORS.accentRed,
+              <Text style={[styles.matchText, {
+                color: password === confirmPassword ? COLORS.success : COLORS.danger,
               }]}>
                 {password === confirmPassword ? '✓ Passwords match' : '✗ Passwords do not match'}
               </Text>
             )}
           </View>
 
-          {/* Error */}
+          {/* Error Message */}
           {errorMsg && (
             <View style={styles.errorContainer}>
+              <Text style={styles.errorIcon}>⚠️</Text>
               <Text style={styles.errorText}>{errorMsg}</Text>
             </View>
           )}
 
           {/* Register Button */}
-          <Animated.View style={{ transform: [{ scale: buttonPulseAnim }] }}>
-            <TouchableOpacity
-              style={[styles.button, loading && styles.buttonDisabled]}
-              onPress={handleRegister}
-              disabled={loading}
-              activeOpacity={0.8}
-            >
-              {loading ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
-              ) : (
-                <Text style={styles.buttonText}>Create Account</Text>
-              )}
-            </TouchableOpacity>
-          </Animated.View>
+          <TouchableOpacity
+            style={[styles.button, loading && styles.buttonDisabled]}
+            onPress={handleRegister}
+            disabled={loading}
+            activeOpacity={0.85}
+          >
+            {loading ? (
+              <View style={styles.buttonContent}>
+                <ActivityIndicator color="#FFF" size="small" />
+                <Text style={styles.buttonText}>CREATING ACCOUNT...</Text>
+              </View>
+            ) : (
+              <View style={styles.buttonContent}>
+                <Text style={styles.buttonText}>REGISTER OPERATOR</Text>
+              </View>
+            )}
+          </TouchableOpacity>
 
           {/* Login Link */}
           <TouchableOpacity
             onPress={() => navigation.goBack()}
             style={styles.linkContainer}
+            activeOpacity={0.7}
           >
             <Text style={styles.linkText}>
-              Already have an account?{' '}
-              <Text style={styles.linkBold}>Sign In</Text>
+              Already registered?{' '}
+              <Text style={styles.linkAccent}>Sign In →</Text>
             </Text>
           </TouchableOpacity>
 
-          {/* Info */}
-          <View style={styles.infoContainer}>
-            <View style={styles.infoDot} />
-            <Text style={styles.infoText}>
-              By creating an account, you'll get access to the IoT dashboard and controls
+          {/* Footer */}
+          <View style={styles.footer}>
+            <View style={styles.footerRow}>
+              <View style={styles.footerDot} />
+              <Text style={styles.footerText}>Secure Registration</Text>
+            </View>
+            <Text style={styles.footerDesc}>
+              By creating an account, you'll gain access to the VerdiX IoT Security Platform
             </Text>
           </View>
         </Animated.View>
@@ -371,215 +449,292 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.bg,
   },
-  bgGlow: {
+  
+  // Ambient Background
+  ambientOrb1: {
     position: 'absolute',
-    top: -150,
-    left: -100,
-    right: -100,
-    height: 500,
-    backgroundColor: COLORS.accentViolet,
-    borderRadius: 250,
+    top: '25%',
+    left: '-10%',
+    width: 300,
+    height: 300,
+    backgroundColor: COLORS.primary,
+    borderRadius: 150,
     opacity: 0.06,
-    transform: [{ scale: 1.5 }],
+    transform: [{ translateX: -150 }, { translateY: -150 }],
   },
+  ambientOrb2: {
+    position: 'absolute',
+    bottom: '25%',
+    right: '-10%',
+    width: 250,
+    height: 250,
+    backgroundColor: COLORS.primaryLight,
+    borderRadius: 125,
+    opacity: 0.04,
+    transform: [{ translateX: 125 }, { translateY: 125 }],
+  },
+
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
+  
+  // Card
   card: {
     width: '100%',
     maxWidth: 440,
-    backgroundColor: COLORS.cardBg,
+    backgroundColor: COLORS.bgGlass,
     borderRadius: 24,
     padding: 32,
     borderWidth: 1,
     borderColor: COLORS.border,
-    position: 'relative',
-    overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 20 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.15,
     shadowRadius: 40,
-    elevation: 12,
+    elevation: 20,
   },
-  shimmerLine: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 2,
-    overflow: 'hidden',
-  },
-  shimmerInner: {
-    position: 'absolute',
-    top: 0,
-    width: '100%',
-    height: 3,
-    backgroundColor: COLORS.accentViolet,
-  },
-  logoContainer: {
+
+  // Hero Logo
+  heroSection: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
   },
-  logoCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
-    backgroundColor: 'rgba(139, 92, 246, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(139, 92, 246, 0.25)',
+  logoRing: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: COLORS.primarySoft,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: COLORS.accentViolet,
+    borderWidth: 2,
+    borderColor: COLORS.borderGlow,
+    shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
+    shadowOpacity: 0.4,
+    shadowRadius: 25,
+    elevation: 10,
+  },
+  logoInner: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
     elevation: 6,
   },
   logoIcon: {
-    fontSize: 28,
+    fontSize: 26,
   },
+
+  // Brand
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: '800',
-    color: COLORS.text,
-    marginBottom: 6,
+    color: COLORS.textPrimary,
+    marginBottom: 4,
     textAlign: 'center',
     letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    marginBottom: 28,
+    fontSize: 12,
+    color: COLORS.textTertiary,
+    marginBottom: 24,
     textAlign: 'center',
     fontWeight: '500',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
   },
+  divider: {
+    height: 1,
+    backgroundColor: COLORS.borderLight,
+    marginBottom: 24,
+  },
+
+  // Inputs
   inputGroup: {
     marginBottom: 16,
   },
   label: {
-    color: COLORS.accentVioletLight,
+    color: COLORS.textSecondary,
     marginBottom: 8,
     fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 1.5,
+    letterSpacing: 1,
     textTransform: 'uppercase',
   },
   inputWrapper: {
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 12,
-    backgroundColor: 'rgba(13, 11, 30, 0.6)',
+    backgroundColor: COLORS.bgSecondary,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   input: {
-    color: COLORS.text,
+    flex: 1,
+    color: COLORS.textPrimary,
     padding: 14,
-    borderRadius: 12,
-    fontSize: 14,
+    fontSize: 15,
+    fontWeight: '500',
   },
+
+  // Password Strength
   strengthContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
+    marginTop: 10,
     gap: 8,
   },
-  strengthBar: {
-    flex: 1,
+  strengthHeader: {
     flexDirection: 'row',
-    gap: 4,
+    alignItems: 'center',
+    gap: 6,
   },
-  strengthSegment: {
-    flex: 1,
-    height: 4,
-    borderRadius: 2,
-    borderWidth: 1,
+  strengthIcon: {
+    fontSize: 14,
   },
   strengthLabel: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 0.5,
-    minWidth: 50,
-    textAlign: 'right',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
-  matchIndicator: {
+  strengthBarBg: {
+    height: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  strengthBarFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+
+  // Match indicator
+  matchText: {
     fontSize: 11,
     fontWeight: '600',
     marginTop: 6,
+    marginLeft: 4,
   },
+
+  // Error
   errorContainer: {
-    backgroundColor: 'rgba(248, 113, 113, 0.1)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(248, 113, 113, 0.3)',
+    borderColor: 'rgba(239, 68, 68, 0.2)',
     borderRadius: 12,
-    padding: 14,
+    padding: 12,
     marginBottom: 16,
+    gap: 10,
+  },
+  errorIcon: {
+    fontSize: 16,
   },
   errorText: {
-    color: COLORS.accentRed,
+    color: COLORS.danger,
     fontSize: 13,
-    fontWeight: '600',
-    textAlign: 'center',
-    lineHeight: 18,
+    fontWeight: '500',
+    flex: 1,
   },
+
+  // Button
   button: {
     marginTop: 8,
-    backgroundColor: 'rgba(139, 92, 246, 0.2)',
+    backgroundColor: COLORS.primary,
     paddingVertical: 16,
-    borderRadius: 14,
+    borderRadius: 12,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(139, 92, 246, 0.3)',
-    shadowColor: COLORS.accentViolet,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 6,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
   },
   buttonDisabled: {
-    opacity: 0.5,
+    opacity: 0.6,
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   buttonText: {
-    color: '#FFFFFF',
+    color: '#FFF',
     fontWeight: '700',
-    fontSize: 16,
-    letterSpacing: 0.5,
+    fontSize: 14,
+    letterSpacing: 1.5,
   },
+
+  // Link
   linkContainer: {
     marginTop: 24,
     alignItems: 'center',
+    paddingVertical: 8,
   },
   linkText: {
-    color: COLORS.textSecondary,
+    color: COLORS.textTertiary,
     fontSize: 13,
+    fontWeight: '500',
   },
-  linkBold: {
-    color: COLORS.accentVioletLight,
+  linkAccent: {
+    color: COLORS.primary,
     fontWeight: '700',
   },
-  infoContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginTop: 20,
-    paddingTop: 16,
+
+  // Footer
+  footer: {
+    marginTop: 24,
+    paddingTop: 20,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(139, 92, 246, 0.12)',
+    borderTopColor: COLORS.borderLight,
+    alignItems: 'center',
     gap: 8,
   },
-  infoDot: {
+  footerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  footerDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: COLORS.textMuted,
-    marginTop: 6,
+    backgroundColor: COLORS.primary,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
   },
-  infoText: {
-    color: COLORS.textMuted,
-    textAlign: 'left',
+  footerText: {
+    color: COLORS.textTertiary,
     fontSize: 11,
+    fontWeight: '500',
+    letterSpacing: 0.5,
+  },
+  footerDesc: {
+    color: COLORS.textTertiary,
+    fontSize: 10,
+    textAlign: 'center',
     lineHeight: 16,
-    flex: 1,
   },
 });
 

@@ -11,9 +11,12 @@ import {
   Animated,
   ActivityIndicator,
   Dimensions,
+  StatusBar,
+  Platform,
+  Vibration,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { getLatestSensorData, getActuatorStatus, controlActuator, postBuzzerDuration, getBuzzerDuration } from '../utils/api';
+import { getLatestSensorData, getActuatorStatus, controlActuator } from '../utils/api';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type RootStackParamList = {
@@ -25,32 +28,33 @@ type HomeScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Home'>;
 };
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
-// Dark Violet Theme
+// VerdiX Green Security Theme - Matching Admin Web
 const COLORS = {
-  bg: '#0D0B1E',
-  bgGradient: '#13102A',
-  cardBg: '#1A1538',
-  cardBorder: 'rgba(139, 92, 246, 0.15)',
-  accentViolet: '#8B5CF6',
-  accentVioletLight: '#A78BFA',
-  accentVioletDark: '#6D28D9',
-  accentPink: '#EC4899',
-  accentPinkLight: '#F472B6',
-  accentCyan: '#22D3EE',
-  accentGreen: '#34D399',
-  accentRed: '#F87171',
-  accentAmber: '#FBBF24',
-  accentOrange: '#FB923C',
-  text: '#F5F3FF',
-  textSecondary: '#C4B5FD',
-  textMuted: '#8B7EC8',
-  surface: 'rgba(139, 92, 246, 0.08)',
-  surfaceGlow: 'rgba(139, 92, 246, 0.2)',
-  switchTrack: 'rgba(109, 40, 217, 0.3)',
-  gradientStart: '#8B5CF6',
-  gradientEnd: '#EC4899',
+  bg: '#050B07',
+  bgSecondary: '#0E1C12',
+  bgElevated: '#0D1810',
+  bgCard: '#0A140E',
+  bgGlass: 'rgba(10, 20, 14, 0.72)',
+  borderLight: 'rgba(34, 197, 94, 0.08)',
+  border: 'rgba(34, 197, 94, 0.15)',
+  borderGlow: 'rgba(34, 197, 94, 0.35)',
+  
+  primary: '#22C55E',
+  primaryLight: '#4ADE80',
+  primaryDark: '#16A34A',
+  primaryGlow: 'rgba(34, 197, 94, 0.35)',
+  primarySoft: 'rgba(34, 197, 94, 0.12)',
+  
+  success: '#22C55E',
+  warning: '#F59E0B',
+  danger: '#EF4444',
+  info: '#3B82F6',
+  
+  textPrimary: '#F8FAFC',
+  textSecondary: '#94A3B8',
+  textTertiary: '#5B6E8C',
 };
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
@@ -60,42 +64,56 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   });
   const [displayMotion, setDisplayMotion] = useState<number | null>(null);
   const [actuators, setActuators] = useState({
-    yellow_led: true,
-    red_led: true,
-    buzzer: true,
+    yellow_led: false,
+    red_led: false,
+    buzzer: false,
   });
-  const [buzzerDuration, setBuzzerDuration] = useState(2);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [isNetworkBusy, setIsNetworkBusy] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState(true);
+  const [expandedPanels, setExpandedPanels] = useState({
+    security: true,
+    lighting: true,
+  });
+  const [motionEvents, setMotionEvents] = useState(0);
+  const [securityLevel, setSecurityLevel] = useState(98);
+  const [connectedDevices, setConnectedDevices] = useState(5);
 
   const motionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
   const isNetworkBusyRef = useRef(false);
   const networkBusyTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const lightCardGlow = useRef(new Animated.Value(0)).current;
-  const motionCardGlow = useRef(new Animated.Value(0)).current;
-  const headerGlow = useRef(new Animated.Value(0)).current;
-  const shimmerAnim = useRef(new Animated.Value(0)).current;
+  // Animations
+  const headerFade = useRef(new Animated.Value(0)).current;
+  const panelsSlide = useRef(new Animated.Value(40)).current;
+  const securityScale = useRef(new Animated.Value(1)).current;
+  const lightingScale = useRef(new Animated.Value(1)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const heroPulse = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     isMountedRef.current = true;
 
-    // Ambient shimmer animation
+    Animated.parallel([
+      Animated.timing(headerFade, { toValue: 1, duration: 700, useNativeDriver: true }),
+      Animated.spring(panelsSlide, { toValue: 0, friction: 8, tension: 40, useNativeDriver: true }),
+    ]).start();
+
+    // Pulse animation for live indicators
     Animated.loop(
       Animated.sequence([
-        Animated.timing(shimmerAnim, { toValue: 1, duration: 3000, useNativeDriver: false }),
-        Animated.timing(shimmerAnim, { toValue: 0, duration: 3000, useNativeDriver: false }),
+        Animated.timing(pulseAnim, { toValue: 0.3, duration: 1500, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 1500, useNativeDriver: true }),
       ])
     ).start();
 
-    // Header subtle glow
+    // Hero orb pulse
     Animated.loop(
       Animated.sequence([
-        Animated.timing(headerGlow, { toValue: 1, duration: 2500, useNativeDriver: false }),
-        Animated.timing(headerGlow, { toValue: 0, duration: 2500, useNativeDriver: false }),
+        Animated.timing(heroPulse, { toValue: 1.05, duration: 2000, useNativeDriver: true }),
+        Animated.timing(heroPulse, { toValue: 1, duration: 2000, useNativeDriver: true }),
       ])
     ).start();
 
@@ -106,31 +124,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     };
   }, []);
 
-  useEffect(() => {
-    if (sensors.motion === 1) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(motionCardGlow, { toValue: 1, duration: 800, useNativeDriver: false }),
-          Animated.timing(motionCardGlow, { toValue: 0.2, duration: 800, useNativeDriver: false }),
-        ])
-      ).start();
-    } else {
-      motionCardGlow.setValue(0);
+  const triggerHaptic = () => {
+    if (Platform.OS === 'ios' || Platform.OS === 'android') {
+      Vibration.vibrate(10);
     }
-  }, [sensors.motion]);
-
-  useEffect(() => {
-    if (sensors.light === 1) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(lightCardGlow, { toValue: 1, duration: 1200, useNativeDriver: false }),
-          Animated.timing(lightCardGlow, { toValue: 0.2, duration: 1200, useNativeDriver: false }),
-        ])
-      ).start();
-    } else {
-      lightCardGlow.setValue(0);
-    }
-  }, [sensors.light]);
+  };
 
   const acquireNetworkLock = (): boolean => {
     if (isNetworkBusyRef.current) return false;
@@ -149,27 +147,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     }, 500);
   };
 
-// Add this new function to fetch buzzer duration separately
-const fetchBuzzerDuration = async () => {
-  try {
-    const durationData = await getBuzzerDuration().catch(() => null);
-    if (durationData?.duration && isMountedRef.current) {
-      setBuzzerDuration(durationData.duration);
-    }
-  } catch (error) {
-    console.error('Duration fetch error:', error);
-  }
-};
-
-// Modified fetchData with proper motion display timing
-const fetchData = async (): Promise<void> => {
+  const fetchData = async (): Promise<void> => {
     try {
-      // Fetch buzzer duration first
-      const durationData = await getBuzzerDuration().catch(() => null);
-      if (durationData?.duration && isMountedRef.current) {
-        setBuzzerDuration(durationData.duration);
-      }
-
       const data = await getLatestSensorData().catch(() => null);
       if (!isMountedRef.current || !data) return;
 
@@ -181,23 +160,22 @@ const fetchData = async (): Promise<void> => {
 
       setSensors({ light: newLight, motion: newMotion });
 
-      // Use current buzzer duration for motion display timing
       if (newMotion === 1) {
         setDisplayMotion(1);
+        setSecurityLevel(45);
+        setMotionEvents(prev => prev + 1);
+        Animated.sequence([
+          Animated.timing(securityScale, { toValue: 1.02, duration: 100, useNativeDriver: true }),
+          Animated.spring(securityScale, { toValue: 1, friction: 3, useNativeDriver: true }),
+        ]).start();
+        
         if (motionTimerRef.current) clearTimeout(motionTimerRef.current);
-        
-        // Calculate display duration based on current buzzer setting
-        const currentDuration = durationData?.duration || buzzerDuration;
-        const displayTime = currentDuration === 1 ? 2000 : currentDuration === 2 ? 4000 : 6000;
-        
-        console.log(`Motion detected! Displaying for ${displayTime/1000} seconds (duration setting: ${currentDuration})`);
-        
         motionTimerRef.current = setTimeout(() => {
           if (isMountedRef.current) {
             setDisplayMotion(null);
-            console.log('Motion display cleared');
+            setSecurityLevel(98);
           }
-        }, displayTime);
+        }, 4000);
       }
 
       const actuatorData = data.actuators || data;
@@ -210,22 +188,19 @@ const fetchData = async (): Promise<void> => {
       }
 
       setLastUpdate(new Date());
+      setConnectionStatus(true);
     } catch (error) {
       console.error('Fetch error:', error);
+      setConnectionStatus(false);
     }
   };
 
-// Update polling to include duration fetch
-useEffect(() => {
+  useEffect(() => {
     fetchData();
-    const dataInterval = setInterval(fetchData, 5000);
-    const durationInterval = setInterval(fetchBuzzerDuration, 10000); // Poll duration every 10s
-    return () => {
-      clearInterval(dataInterval);
-      clearInterval(durationInterval);
-    };
+    const dataInterval = setInterval(fetchData, 3000);
+    return () => clearInterval(dataInterval);
   }, []);
-  
+
   const onRefresh = async (): Promise<void> => {
     setRefreshing(true);
     await fetchData();
@@ -234,42 +209,23 @@ useEffect(() => {
 
   const toggleActuator = async (actuator: string, value: boolean) => {
     if (!acquireNetworkLock()) {
-      Alert.alert('Please wait', 'Network update in progress.');
+      Alert.alert('Network Busy', 'Previous command still processing.');
       return;
     }
     try {
+      triggerHaptic();
       const result = await controlActuator(actuator, value);
       if (result?.success) {
         setActuators(prev => ({ ...prev, [actuator]: value }));
       } else {
         Alert.alert('Error', `Failed to update ${actuator}`);
       }
+    } catch (error) {
+      Alert.alert('Error', 'Network error occurred');
     } finally {
       releaseNetworkLock();
     }
   };
-
-  
-
-  const handleSetBuzzerDuration = async (duration: number) => {
-    if (!acquireNetworkLock()) {
-      Alert.alert('Please wait', 'Network update in progress.');
-      return;
-    }
-    try {
-      const result = await postBuzzerDuration(duration);
-      if (result?.success) setBuzzerDuration(duration);
-      else Alert.alert('Error', 'Failed to update buzzer duration');
-    } finally {
-      releaseNetworkLock();
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 5000);
-    return () => clearInterval(interval);
-  }, []);
 
   useFocusEffect(useCallback(() => { fetchData(); }, []));
 
@@ -277,602 +233,1005 @@ useEffect(() => {
   const lightOn = sensors.light === 1;
   const lightOff = sensors.light === 0;
 
-  const headerBorderColor = headerGlow.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['rgba(139, 92, 246, 0.2)', 'rgba(236, 72, 153, 0.4)'],
-  });
-
-  const motionGlowBorder = motionCardGlow.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['rgba(139, 92, 246, 0.2)', 'rgba(248, 113, 113, 0.6)'],
-  });
-
-  const lightGlowBorder = lightCardGlow.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['rgba(139, 92, 246, 0.2)', 'rgba(251, 191, 36, 0.6)'],
-  });
+  const togglePanel = (panel: 'security' | 'lighting') => {
+    setExpandedPanels(prev => ({ ...prev, [panel]: !prev[panel] }));
+    triggerHaptic();
+  };
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          tintColor={COLORS.accentVioletLight}
-          colors={[COLORS.accentViolet]}
-          progressBackgroundColor={COLORS.cardBg}
-        />
-      }
-    >
-      {/* Animated Background Glow */}
-      <Animated.View style={[styles.bgGlow, { opacity: shimmerAnim.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.6] }) }]} />
-
-      {/* Header */}
-      <Animated.View style={[styles.header, { borderBottomColor: headerBorderColor }]}>
-        <View style={styles.headerTop}>
-          <View style={styles.headerLeft}>
-            <View style={styles.logoContainer}>
-              <Text style={styles.logoIcon}>⚡</Text>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={COLORS.primary}
+            colors={[COLORS.primary]}
+            progressBackgroundColor={COLORS.bgElevated}
+          />
+        }
+      >
+        {/* ─── TOP NAVIGATION BAR ─── */}
+        <Animated.View style={[styles.topNav, { opacity: headerFade }]}>
+          <View style={styles.navBrand}>
+            <View style={styles.navLogo}>
+              <Text style={styles.navLogoText}>🛡️</Text>
             </View>
             <View>
-              <Text style={styles.title}>AURA</Text>
-              <Text style={styles.subtitle}>Control Center</Text>
-              <View style={styles.connectionRow}>
-                <View style={[styles.statusDot, { backgroundColor: connectionStatus ? COLORS.accentGreen : COLORS.accentRed }]} />
-                <Text style={[styles.connectionText, { color: connectionStatus ? COLORS.accentGreen : COLORS.accentRed }]}>
-                  {connectionStatus ? 'System Online' : 'System Offline'}
-                </Text>
-              </View>
+              <Text style={styles.navTitle}>VerdiX</Text>
+              <Text style={styles.navSubtitle}>IoT Security Platform</Text>
             </View>
           </View>
-          <TouchableOpacity onPress={() => navigation.navigate('Settings')} style={styles.settingsBtn}>
-            <Text style={styles.settingsIcon}>⚙️</Text>
-          </TouchableOpacity>
-        </View>
-        <Text style={styles.lastUpdate}>
-          Last sync · {lastUpdate.toLocaleTimeString()}
-        </Text>
-      </Animated.View>
-
-      {isNetworkBusy && (
-        <View style={styles.syncingBar}>
-          <ActivityIndicator size="small" color={COLORS.accentVioletLight} />
-          <Text style={styles.syncingText}>Processing changes...</Text>
-        </View>
-      )}
-
-      {/* ============ MOTION SENSOR CARD ============ */}
-      <Animated.View style={[
-        styles.card,
-        {
-          borderColor: motionActive ? motionGlowBorder : COLORS.cardBorder,
-          shadowColor: motionActive ? COLORS.accentRed : COLORS.accentViolet,
-          shadowOpacity: motionActive ? motionCardGlow.interpolate({ inputRange: [0, 1], outputRange: [0.15, 0.4] }) : 0.1,
-        },
-      ]}>
-        {/* Card Top Accent Line */}
-        <View style={[styles.cardAccent, { backgroundColor: motionActive ? COLORS.accentRed : COLORS.accentViolet }]} />
-        
-        {/* Card Header */}
-        <View style={styles.cardHeader}>
-          <View style={styles.cardHeaderLeft}>
-            <View style={[styles.iconCircle, motionActive ? styles.iconCircleActive : styles.iconCircleInactive]}>
-              <Text style={styles.cardIcon}>{motionActive ? '🏃' : '🧍'}</Text>
+          <View style={styles.navActions}>
+            <View style={styles.statusPill}>
+              <Animated.View style={[styles.statusDot, { 
+                backgroundColor: connectionStatus ? COLORS.primary : COLORS.danger,
+                opacity: connectionStatus ? pulseAnim : 1
+              }]} />
+              <Text style={[styles.statusText, { 
+                color: connectionStatus ? COLORS.primary : COLORS.danger 
+              }]}>
+                {connectionStatus ? 'Online' : 'Offline'}
+              </Text>
             </View>
-            <View>
-              <Text style={styles.cardTitle}>Motion Sensor</Text>
-              <Text style={[styles.cardStatus, { color: motionActive ? COLORS.accentRed : COLORS.accentGreen }]}>
-                {motionActive ? 'Activity Detected' : 'Area Clear'}
+            <TouchableOpacity onPress={() => navigation.navigate('Settings')} style={styles.iconBtn}>
+              <Text style={styles.iconBtnText}>⚙️</Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+
+        {/* ─── SYNCING INDICATOR ─── */}
+        {isNetworkBusy && (
+          <View style={styles.syncingBar}>
+            <ActivityIndicator size="small" color={COLORS.primary} />
+            <Text style={styles.syncingText}>Processing command...</Text>
+          </View>
+        )}
+
+        {/* ─── STATS ROW ─── */}
+        <Animated.View style={{ opacity: headerFade, transform: [{ translateY: panelsSlide }] }}>
+          <View style={styles.statsRow}>
+            <View style={styles.statCard}>
+              <View style={styles.statHeader}>
+                <Text style={styles.statLabel}>MOTION EVENTS</Text>
+                <Text style={styles.statIcon}>🏃</Text>
+              </View>
+              <Text style={styles.statValue}>{motionEvents}</Text>
+              <Text style={styles.statChange}>↑ 12% from last week</Text>
+            </View>
+            <View style={styles.statCard}>
+              <View style={styles.statHeader}>
+                <Text style={styles.statLabel}>LIGHT STATUS</Text>
+                <Text style={styles.statIcon}>💡</Text>
+              </View>
+              <Text style={[styles.statValue, { 
+                color: lightOn ? COLORS.warning : COLORS.textSecondary 
+              }]}>
+                {lightOn ? 'Bright' : 'Dark'}
+              </Text>
+              <Text style={styles.statChange}>{lightOn ? 'Day mode' : 'Night mode'}</Text>
+            </View>
+          </View>
+
+          <View style={styles.statsRow}>
+            <View style={styles.statCard}>
+              <View style={styles.statHeader}>
+                <Text style={styles.statLabel}>CONNECTED DEVICES</Text>
+                <Text style={styles.statIcon}>📡</Text>
+              </View>
+              <Text style={styles.statValue}>{connectedDevices}</Text>
+              <Text style={styles.statChange}>All active</Text>
+            </View>
+            <View style={styles.statCard}>
+              <View style={styles.statHeader}>
+                <Text style={styles.statLabel}>SECURITY LEVEL</Text>
+                <Text style={styles.statIcon}>🔒</Text>
+              </View>
+              <Text style={[styles.statValue, { 
+                color: motionActive ? COLORS.danger : COLORS.primary 
+              }]}>
+                {securityLevel}%
+              </Text>
+              <Text style={[styles.statChange, { 
+                color: motionActive ? COLORS.danger : COLORS.primary 
+              }]}>
+                {motionActive ? 'Alert active' : 'System secure'}
               </Text>
             </View>
           </View>
-          <View style={[styles.sensorValueBadge, motionActive ? styles.badgeActive : styles.badgeInactive]}>
-            <Text style={[styles.sensorValue, { color: motionActive ? COLORS.accentRed : COLORS.textSecondary }]}>
-              {sensors.motion !== null ? sensors.motion : '--'}
-            </Text>
-          </View>
-        </View>
+        </Animated.View>
 
-        {/* Divider */}
-        <View style={styles.divider} />
-
-        {/* Buzzer Controls */}
-        <View style={styles.controlsSection}>
-          <Text style={styles.controlsLabel}>Actuator Controls</Text>
-          
-          {/* Buzzer Toggle */}
-          <View style={styles.controlRow}>
-            <View style={styles.controlInfo}>
-              <View style={[styles.controlIconBox, { backgroundColor: 'rgba(139, 92, 246, 0.15)' }]}>
-                <Text style={styles.controlIcon}>🔊</Text>
-              </View>
-              <View>
-                <Text style={styles.controlName}>Buzzer Alarm</Text>
-                <Text style={styles.controlHint}>
-                  Triggers on motion · {actuators.buzzer ? 'Enabled' : 'Disabled'}
-                </Text>
-              </View>
-            </View>
-            <Switch
-              value={actuators.buzzer}
-              onValueChange={(v) => toggleActuator('buzzer', v)}
-              trackColor={{ false: COLORS.switchTrack, true: 'rgba(139, 92, 246, 0.4)' }}
-              thumbColor={actuators.buzzer ? COLORS.accentVioletLight : COLORS.textMuted}
-              disabled={isNetworkBusy}
-            />
-          </View>
-
-          {/* Buzzer Duration */}
-          <Text style={styles.durationLabel}>Alarm Duration</Text>
-          <View style={styles.durationRow}>
-            {[
-              { value: 1, label: '2 sec' },
-              { value: 2, label: '4 sec' },
-              { value: 3, label: '6 sec' },
-            ].map(d => (
-              <TouchableOpacity
-                key={d.value}
-                style={[styles.durationBtn, buzzerDuration === d.value && styles.durationBtnActive]}
-                onPress={() => handleSetBuzzerDuration(d.value)}
-                disabled={isNetworkBusy}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.durationBtnText, buzzerDuration === d.value && styles.durationBtnTextActive]}>
-                  {d.label}
-                </Text>
-                {buzzerDuration === d.value && <View style={styles.durationActiveDot} />}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      </Animated.View>
-
-      {/* ============ LIGHT SENSOR CARD ============ */}
-      <Animated.View style={[
-        styles.card,
-        {
-          borderColor: lightOn ? lightGlowBorder : COLORS.cardBorder,
-          shadowColor: lightOn ? COLORS.accentAmber : COLORS.accentViolet,
-          shadowOpacity: lightOn ? lightCardGlow.interpolate({ inputRange: [0, 1], outputRange: [0.15, 0.4] }) : 0.1,
-        },
-      ]}>
-        {/* Card Top Accent Line */}
-        <View style={[styles.cardAccent, { backgroundColor: lightOn ? COLORS.accentAmber : COLORS.accentViolet }]} />
-        
-        {/* Card Header */}
-        <View style={styles.cardHeader}>
-          <View style={styles.cardHeaderLeft}>
-            <View style={[styles.iconCircle, lightOn ? styles.iconCircleLight : styles.iconCircleDark]}>
-              <Text style={styles.cardIcon}>{lightOn ? '☀️' : '🌙'}</Text>
-            </View>
-            <View>
-              <Text style={styles.cardTitle}>Light Sensor</Text>
-              <Text style={[styles.cardStatus, { color: lightOn ? COLORS.accentAmber : COLORS.accentVioletLight }]}>
-                {lightOn ? 'Illuminated' : lightOff ? 'Darkness' : 'Reading...'}
-              </Text>
+        {/* ─── SECURITY STATUS CARD ─── */}
+        <Animated.View style={[styles.securityCard, motionActive && styles.securityCardAlert, { transform: [{ scale: securityScale }] }]}>
+          {/* Circular Progress Ring */}
+          <View style={styles.securityRingOuter}>
+            <View style={styles.securityRingBg} />
+            <View style={[styles.securityRingSegment1, { 
+              backgroundColor: motionActive ? COLORS.danger : COLORS.primary,
+              opacity: securityLevel >= 25 ? 1 : 0.2
+            }]} />
+            <View style={[styles.securityRingSegment2, { 
+              backgroundColor: motionActive ? COLORS.danger : COLORS.primary,
+              opacity: securityLevel >= 50 ? 1 : 0.2
+            }]} />
+            <View style={[styles.securityRingSegment3, { 
+              backgroundColor: motionActive ? COLORS.danger : COLORS.primary,
+              opacity: securityLevel >= 75 ? 1 : 0.2
+            }]} />
+            <View style={[styles.securityRingSegment4, { 
+              backgroundColor: motionActive ? COLORS.danger : COLORS.primary,
+              opacity: securityLevel >= 100 ? 1 : 0.2
+            }]} />
+            <View style={styles.securityRingInner}>
+              <Text style={styles.securityPercentage}>{securityLevel}%</Text>
+              <Text style={styles.securityLabel}>Security Index</Text>
             </View>
           </View>
-          <View style={[styles.sensorValueBadge, lightOn ? styles.badgeLight : styles.badgeDark]}>
-            <Text style={[styles.sensorValue, { color: lightOn ? COLORS.accentAmber : COLORS.textSecondary }]}>
-              {sensors.light !== null ? sensors.light : '--'}
-            </Text>
-          </View>
-        </View>
 
-        {/* Divider */}
-        <View style={styles.divider} />
-
-        {/* LED Controls */}
-        <View style={styles.controlsSection}>
-          <Text style={styles.controlsLabel}>Lighting Controls</Text>
-          
-          {/* Yellow LED */}
-          <View style={styles.controlRow}>
-            <View style={styles.controlInfo}>
-              <View style={[styles.controlIconBox, { backgroundColor: 'rgba(251, 191, 36, 0.15)' }]}>
-                <View style={[styles.ledIndicator, { backgroundColor: COLORS.accentAmber }]} />
-              </View>
-              <View>
-                <Text style={styles.controlName}>Amber Light</Text>
-                <Text style={styles.controlHint}>
-                  Day indicator · {actuators.yellow_led ? 'Active' : 'Off'}
-                </Text>
-              </View>
-            </View>
-            <Switch
-              value={actuators.yellow_led}
-              onValueChange={(v) => toggleActuator('yellow_led', v)}
-              trackColor={{ false: COLORS.switchTrack, true: 'rgba(251, 191, 36, 0.35)' }}
-              thumbColor={actuators.yellow_led ? COLORS.accentAmber : COLORS.textMuted}
-              disabled={isNetworkBusy}
-            />
-          </View>
-
-          {/* Red LED */}
-          <View style={styles.controlRow}>
-            <View style={styles.controlInfo}>
-              <View style={[styles.controlIconBox, { backgroundColor: 'rgba(248, 113, 113, 0.15)' }]}>
-                <View style={[styles.ledIndicator, { backgroundColor: COLORS.accentRed }]} />
-              </View>
-              <View>
-                <Text style={styles.controlName}>Crimson Light</Text>
-                <Text style={styles.controlHint}>
-                  Night indicator · {actuators.red_led ? 'Active' : 'Off'}
-                </Text>
-              </View>
-            </View>
-            <Switch
-              value={actuators.red_led}
-              onValueChange={(v) => toggleActuator('red_led', v)}
-              trackColor={{ false: COLORS.switchTrack, true: 'rgba(248, 113, 113, 0.35)' }}
-              thumbColor={actuators.red_led ? COLORS.accentRed : COLORS.textMuted}
-              disabled={isNetworkBusy}
-            />
-          </View>
-        </View>
-      </Animated.View>
-
-      {/* Footer Status */}
-      <View style={styles.footer}>
-        <View style={styles.footerRow}>
-          <View style={styles.footerDot} />
-          <Text style={styles.footerText}>Auto-refresh active · 5s interval</Text>
-        </View>
-        <View style={styles.footerRow}>
-          <View style={[styles.footerDot, { backgroundColor: isNetworkBusy ? COLORS.accentAmber : COLORS.accentGreen }]} />
-          <Text style={styles.footerText}>
-            {isNetworkBusy ? 'Lock engaged · Syncing' : 'Ready for commands'}
+          <Text style={[styles.securityStatus, { 
+            color: motionActive ? COLORS.danger : COLORS.primary 
+          }]}>
+            {motionActive ? 'ALERT ACTIVE' : 'ALL SECURE'}
           </Text>
-        </View>
-      </View>
+          <View style={[styles.statusBadge, { 
+            backgroundColor: motionActive ? 'rgba(239, 68, 68, 0.12)' : COLORS.primarySoft 
+          }]}>
+            <Text style={[styles.statusBadgeText, { 
+              color: motionActive ? COLORS.danger : COLORS.primary 
+            }]}>
+              System Status: {connectionStatus ? 'Operational' : 'Disconnected'}
+            </Text>
+          </View>
 
-      <View style={{ height: 40 }} />
-    </ScrollView>
+          {/* System Metrics */}
+          <View style={styles.metricsContainer}>
+            <View style={styles.metricRow}>
+              <Text style={styles.metricLabel}>System Uptime</Text>
+              <Text style={styles.metricValue}>99.98%</Text>
+            </View>
+            <View style={styles.healthBar}>
+              <View style={[styles.healthFill, { width: '99.98%' }]} />
+            </View>
+
+            <View style={styles.metricRow}>
+              <Text style={styles.metricLabel}>Response Time</Text>
+              <Text style={styles.metricValue}>124ms</Text>
+            </View>
+            <View style={styles.healthBar}>
+              <View style={[styles.healthFill, { width: '94%' }]} />
+            </View>
+
+            <View style={styles.metricRow}>
+              <Text style={styles.metricLabel}>Threat Level</Text>
+              <Text style={[styles.metricValue, { 
+                color: motionActive ? COLORS.danger : COLORS.primary 
+              }]}>
+                {motionActive ? 'High' : 'Low'}
+              </Text>
+            </View>
+            <View style={styles.healthBar}>
+              <View style={[styles.healthFill, { 
+                width: motionActive ? '85%' : '15%', 
+                backgroundColor: motionActive ? COLORS.danger : COLORS.primary 
+              }]} />
+            </View>
+          </View>
+        </Animated.View>
+
+        {/* ─── SECURITY RESPONSE PANEL ─── */}
+        <Animated.View style={[styles.featurePanel, { opacity: headerFade, transform: [{ translateY: panelsSlide }] }]}>
+          <View style={styles.panelHeader}>
+            <View style={[styles.panelIcon, styles.panelIconSecurity]}>
+              <Text style={styles.panelIconText}>🛡️</Text>
+            </View>
+            <View style={styles.panelHeaderText}>
+              <Text style={styles.panelTitle}>Security Response</Text>
+              <Text style={styles.panelSubtitle}>Motion · Buzzer · Red LED</Text>
+            </View>
+          </View>
+
+          <View style={styles.panelVisual}>
+            <Text style={styles.panelVisualEmoji}>{motionActive ? '🚨' : '✅'}</Text>
+            <Text style={[styles.panelVisualStatus, { color: motionActive ? COLORS.danger : COLORS.primary }]}>
+              {motionActive ? 'Intrusion Alert' : 'Secure'}
+            </Text>
+            <Text style={styles.panelVisualLabel}>
+              {motionActive ? 'Motion detected — respond immediately' : 'No activity — area is safe'}
+            </Text>
+          </View>
+
+          <View style={styles.actuatorList}>
+            <View style={styles.actuatorRow}>
+              <View style={styles.actuatorLeft}>
+                <View style={[styles.actuatorDot, { backgroundColor: COLORS.warning }]} />
+                <View>
+                  <Text style={styles.actuatorName}>Buzzer Alarm</Text>
+                  <Text style={styles.actuatorDesc}>
+                    {actuators.buzzer ? 'Armed — will sound on motion' : 'Disarmed — silent mode'}
+                  </Text>
+                </View>
+              </View>
+              <Switch
+                value={actuators.buzzer}
+                onValueChange={(v) => toggleActuator('buzzer', v)}
+                trackColor={{ false: 'rgba(255,255,255,0.06)', true: COLORS.primary }}
+                thumbColor={actuators.buzzer ? '#fff' : COLORS.textTertiary}
+                disabled={isNetworkBusy}
+              />
+            </View>
+            <View style={styles.actuatorRow}>
+              <View style={styles.actuatorLeft}>
+                <View style={[styles.actuatorDot, { backgroundColor: COLORS.danger }]} />
+                <View>
+                  <Text style={styles.actuatorName}>Red LED (D12)</Text>
+                  <Text style={styles.actuatorDesc}>
+                    {actuators.red_led ? 'Enabled — syncs with buzzer' : 'Disabled — stays off'}
+                  </Text>
+                </View>
+              </View>
+              <Switch
+                value={actuators.red_led}
+                onValueChange={(v) => toggleActuator('red_led', v)}
+                trackColor={{ false: 'rgba(255,255,255,0.06)', true: COLORS.danger }}
+                thumbColor={actuators.red_led ? '#fff' : COLORS.textTertiary}
+                disabled={isNetworkBusy}
+              />
+            </View>
+          </View>
+        </Animated.View>
+
+        {/* ─── LIGHTING AUTOMATION PANEL ─── */}
+        <Animated.View style={[styles.featurePanel, { opacity: headerFade, transform: [{ translateY: panelsSlide }] }]}>
+          <View style={styles.panelHeader}>
+            <View style={[styles.panelIcon, styles.panelIconLighting]}>
+              <Text style={styles.panelIconText}>💡</Text>
+            </View>
+            <View style={styles.panelHeaderText}>
+              <Text style={styles.panelTitle}>Lighting Automation</Text>
+              <Text style={styles.panelSubtitle}>Light Sensor · Yellow LED</Text>
+            </View>
+          </View>
+
+          <View style={styles.panelVisual}>
+            <Text style={styles.panelVisualEmoji}>{lightOn ? '☀️' : '🌙'}</Text>
+            <Text style={[styles.panelVisualStatus, { color: lightOn ? COLORS.warning : COLORS.textTertiary }]}>
+              {lightOn ? 'Daylight' : (lightOff ? 'Night' : 'Measuring...')}
+            </Text>
+            <Text style={styles.panelVisualLabel}>
+              {lightOn ? 'Sufficient ambient light' : (lightOff ? 'Darkness detected — LED active' : 'Calibrating sensor reading')}
+            </Text>
+          </View>
+
+          <View style={styles.actuatorList}>
+            <View style={styles.actuatorRow}>
+              <View style={styles.actuatorLeft}>
+                <View style={[styles.actuatorDot, { backgroundColor: COLORS.warning }]} />
+                <View>
+                  <Text style={styles.actuatorName}>Yellow LED (D14)</Text>
+                  <Text style={styles.actuatorDesc}>
+                    {lightOff ? 'ON — dark environment' : 'OFF — sufficient light'} · {actuators.yellow_led ? 'Automation enabled' : 'Automation disabled'}
+                  </Text>
+                </View>
+              </View>
+              <Switch
+                value={actuators.yellow_led}
+                onValueChange={(v) => toggleActuator('yellow_led', v)}
+                trackColor={{ false: 'rgba(255,255,255,0.06)', true: COLORS.primary }}
+                thumbColor={actuators.yellow_led ? '#fff' : COLORS.textTertiary}
+                disabled={isNetworkBusy}
+              />
+            </View>
+          </View>
+        </Animated.View>
+
+        {/* ─── SENSORS GRID ─── */}
+        <Text style={styles.sectionTitle}>Sensors & Actuators</Text>
+        <View style={styles.sensorsGrid}>
+          {/* Motion Sensor */}
+          <View style={styles.sensorCard}>
+            <View style={styles.sensorHeader}>
+              <Text style={styles.sensorName}>Motion Sensor</Text>
+              <Animated.View style={[styles.liveDot, { opacity: pulseAnim }]} />
+            </View>
+            <Text style={[styles.sensorValue, { 
+              color: motionActive ? COLORS.danger : COLORS.primary 
+            }]}>
+              {motionActive ? '⚠️ Motion Detected' : '✓ Clear'}
+            </Text>
+            <View style={styles.sensorFooter}>
+              <Text style={styles.sensorMeta}>
+                Last triggered: {lastUpdate.toLocaleTimeString()}
+              </Text>
+            </View>
+          </View>
+
+          {/* Light Sensor */}
+          <View style={styles.sensorCard}>
+            <View style={styles.sensorHeader}>
+              <Text style={styles.sensorName}>Light Sensor</Text>
+              <Animated.View style={[styles.liveDot, { opacity: pulseAnim }]} />
+            </View>
+            <Text style={[styles.sensorValue, { 
+              color: lightOn ? COLORS.warning : COLORS.textSecondary 
+            }]}>
+              {lightOn ? '☀️ Bright' : '🌙 Dark'}
+            </Text>
+            <View style={styles.sensorFooter}>
+              <Text style={styles.sensorMeta}>
+                Ambient: {lightOn ? 'High' : 'Low'}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* ─── DEVICE HEALTH ─── */}
+        <Text style={styles.sectionTitle}>Device Health</Text>
+        <View style={styles.deviceGrid}>
+          <View style={styles.deviceCard}>
+            <View style={styles.deviceInfo}>
+              <Text style={styles.deviceIcon}>🏃</Text>
+              <View>
+                <Text style={styles.deviceName}>Motion Sensor</Text>
+                <Text style={styles.deviceStatus}>Online</Text>
+              </View>
+            </View>
+            <View style={styles.healthBar}>
+              <View style={[styles.healthFill, { width: '97%' }]} />
+            </View>
+            <View style={styles.deviceMetrics}>
+              <Text style={styles.deviceMetricText}>Health 97%</Text>
+              <Text style={styles.deviceMetricText}>Signal 94%</Text>
+            </View>
+          </View>
+
+          <View style={styles.deviceCard}>
+            <View style={styles.deviceInfo}>
+              <Text style={styles.deviceIcon}>💡</Text>
+              <View>
+                <Text style={styles.deviceName}>Light Sensor</Text>
+                <Text style={styles.deviceStatus}>Online</Text>
+              </View>
+            </View>
+            <View style={styles.healthBar}>
+              <View style={[styles.healthFill, { width: '99%' }]} />
+            </View>
+            <View style={styles.deviceMetrics}>
+              <Text style={styles.deviceMetricText}>Health 99%</Text>
+              <Text style={styles.deviceMetricText}>Signal 98%</Text>
+            </View>
+          </View>
+
+          <View style={styles.deviceCard}>
+            <View style={styles.deviceInfo}>
+              <Text style={styles.deviceIcon}>🔊</Text>
+              <View>
+                <Text style={styles.deviceName}>Buzzer</Text>
+                <Text style={styles.deviceStatus}>Standby</Text>
+              </View>
+            </View>
+            <View style={styles.healthBar}>
+              <View style={[styles.healthFill, { width: '100%' }]} />
+            </View>
+            <View style={styles.deviceMetrics}>
+              <Text style={styles.deviceMetricText}>Health 100%</Text>
+              <Text style={styles.deviceMetricText}>Signal 100%</Text>
+            </View>
+          </View>
+
+          <View style={styles.deviceCard}>
+            <View style={styles.deviceInfo}>
+              <Text style={styles.deviceIcon}>🔴</Text>
+              <View>
+                <Text style={styles.deviceName}>LED Controller</Text>
+                <Text style={styles.deviceStatus}>Active</Text>
+              </View>
+            </View>
+            <View style={styles.healthBar}>
+              <View style={[styles.healthFill, { width: '96%' }]} />
+            </View>
+            <View style={styles.deviceMetrics}>
+              <Text style={styles.deviceMetricText}>Health 96%</Text>
+              <Text style={styles.deviceMetricText}>Signal 91%</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* ─── FOOTER ─── */}
+        <View style={styles.footer}>
+          <View style={styles.footerRow}>
+            <Animated.View style={[styles.footerDot, { 
+              backgroundColor: COLORS.primary,
+              opacity: pulseAnim
+            }]} />
+            <Text style={styles.footerText}>Auto-refresh · 3s</Text>
+          </View>
+          <View style={styles.footerRow}>
+            <View style={[styles.footerDot, { 
+              backgroundColor: isNetworkBusy ? COLORS.warning : COLORS.primary 
+            }]} />
+            <Text style={styles.footerText}>
+              {isNetworkBusy ? 'Syncing...' : 'Standby'}
+            </Text>
+          </View>
+          <View style={styles.footerRow}>
+            <View style={[styles.footerDot, { backgroundColor: COLORS.primary }]} />
+            <Text style={styles.footerText}>VerdiX v2.0</Text>
+          </View>
+        </View>
+
+        <View style={{ height: 30 }} />
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.bg,
+  container: { 
+    flex: 1, 
+    backgroundColor: COLORS.bg 
   },
-  contentContainer: {
-    paddingBottom: 40,
+  scrollView: { 
+    flex: 1 
   },
-  bgGlow: {
-    position: 'absolute',
-    top: -100,
-    left: -50,
-    right: -50,
-    height: 400,
-    backgroundColor: COLORS.accentViolet,
-    borderRadius: 200,
-    opacity: 0.15,
-    transform: [{ scale: 1.5 }],
+  contentContainer: { 
+    paddingBottom: 20, 
+    padding: 16 
   },
-  header: {
-    paddingHorizontal: 24,
-    paddingTop: 55,
-    paddingBottom: 24,
-    borderBottomWidth: 1,
-    backgroundColor: 'rgba(13, 11, 30, 0.8)',
-  },
-  headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  headerLeft: {
-    flexDirection: 'row',
+
+  // Top Navigation
+  topNav: {
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
     alignItems: 'center',
-    gap: 14,
+    backgroundColor: COLORS.bgGlass, 
+    borderWidth: 1, 
+    borderColor: COLORS.border,
+    borderRadius: 20, 
+    padding: 14, 
+    marginBottom: 16,
+    ...Platform.select({
+      ios: { 
+        shadowColor: COLORS.primary, 
+        shadowOffset: { width: 0, height: 4 }, 
+        shadowOpacity: 0.2, 
+        shadowRadius: 12 
+      },
+      android: { 
+        elevation: 8 
+      },
+    }),
   },
-  logoContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    backgroundColor: 'rgba(139, 92, 246, 0.2)',
+  navBrand: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 10 
+  },
+  navLogo: {
+    width: 40, 
+    height: 40, 
+    borderRadius: 12,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center', 
+    alignItems: 'center',
+    shadowColor: COLORS.primary, 
+    shadowOffset: { width: 0, height: 0 }, 
+    shadowOpacity: 0.5, 
+    shadowRadius: 10,
+  },
+  navLogoText: { 
+    fontSize: 18 
+  },
+  navTitle: { 
+    fontSize: 20, 
+    fontWeight: '800', 
+    color: COLORS.textPrimary, 
+    letterSpacing: -0.5 
+  },
+  navSubtitle: { 
+    fontSize: 10, 
+    color: COLORS.textTertiary, 
+    textTransform: 'uppercase', 
+    letterSpacing: 1 
+  },
+  navActions: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 8 
+  },
+  statusPill: {
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 6,
+    paddingHorizontal: 10, 
+    paddingVertical: 5,
+    backgroundColor: COLORS.bgElevated, 
+    borderWidth: 1, 
+    borderColor: COLORS.border,
+    borderRadius: 100,
+  },
+  statusDot: { 
+    width: 6, 
+    height: 6, 
+    borderRadius: 3 
+  },
+  statusText: { 
+    fontSize: 10, 
+    fontWeight: '600', 
+    letterSpacing: 0.5 
+  },
+  iconBtn: {
+    width: 36, 
+    height: 36, 
+    borderRadius: 12,
+    backgroundColor: COLORS.bgElevated, 
+    borderWidth: 1, 
+    borderColor: COLORS.border,
+    justifyContent: 'center', 
+    alignItems: 'center',
+  },
+  iconBtnText: { 
+    fontSize: 16 
+  },
+
+  // Syncing Bar
+  syncingBar: {
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    backgroundColor: COLORS.primarySoft, 
+    borderWidth: 1, 
+    borderColor: COLORS.border,
+    paddingVertical: 8, 
+    borderRadius: 12, 
+    marginBottom: 14, 
+    gap: 8,
+  },
+  syncingText: { 
+    color: COLORS.primary, 
+    fontSize: 11, 
+    fontWeight: '600' 
+  },
+
+  // Stats Row
+  statsRow: { 
+    flexDirection: 'row', 
+    gap: 10, 
+    marginBottom: 10 
+  },
+  statCard: {
+    flex: 1, 
+    backgroundColor: COLORS.bgCard,
+    borderWidth: 1, 
+    borderColor: COLORS.border,
+    borderRadius: 20, 
+    padding: 16,
+  },
+  statHeader: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    marginBottom: 12 
+  },
+  statIcon: { 
+    fontSize: 20 
+  },
+  statLabel: { 
+    fontSize: 9, 
+    fontWeight: '700', 
+    color: COLORS.textTertiary, 
+    letterSpacing: 1 
+  },
+  statValue: { 
+    fontSize: 24, 
+    fontWeight: '800', 
+    color: COLORS.textPrimary, 
+    marginBottom: 4 
+  },
+  statChange: { 
+    fontSize: 9, 
+    color: COLORS.primary 
+  },
+
+  // Security Card
+  securityCard: {
+    backgroundColor: COLORS.bgCard,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 24,
+    padding: 24,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  securityCardAlert: {
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+  },
+  securityRingOuter: {
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    position: 'relative',
+    marginBottom: 16,
+  },
+  securityRingBg: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 90,
+    borderWidth: 8,
+    borderColor: COLORS.bgSecondary,
+  },
+  securityRingSegment1: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 90,
+    borderWidth: 8,
+    borderColor: COLORS.primary,
+    borderBottomColor: 'transparent',
+    borderRightColor: 'transparent',
+  },
+  securityRingSegment2: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 90,
+    borderWidth: 8,
+    borderColor: COLORS.primary,
+    borderTopColor: 'transparent',
+    borderLeftColor: 'transparent',
+  },
+  securityRingSegment3: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 90,
+    borderWidth: 8,
+    borderColor: COLORS.primary,
+    borderBottomColor: 'transparent',
+    borderLeftColor: 'transparent',
+  },
+  securityRingSegment4: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 90,
+    borderWidth: 8,
+    borderColor: COLORS.primary,
+    borderTopColor: 'transparent',
+    borderRightColor: 'transparent',
+  },
+  securityRingInner: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    right: 20,
+    bottom: 20,
+    borderRadius: 70,
+    backgroundColor: COLORS.bgCard,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(139, 92, 246, 0.3)',
   },
-  logoIcon: {
-    fontSize: 22,
-  },
-  title: {
-    fontSize: 26,
+  securityPercentage: {
+    fontSize: 32,
     fontWeight: '800',
-    color: COLORS.text,
-    letterSpacing: -0.5,
+    color: COLORS.textPrimary,
   },
-  subtitle: {
-    fontSize: 14,
+  securityLabel: {
+    fontSize: 11,
     color: COLORS.textSecondary,
-    fontWeight: '500',
-    marginTop: -2,
+    marginTop: 4,
   },
-  connectionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 6,
-    gap: 6,
+  securityStatus: {
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 12,
   },
-  statusDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 6,
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 100,
+    marginBottom: 20,
   },
-  connectionText: {
-    fontSize: 12,
+  statusBadgeText: {
+    fontSize: 10,
     fontWeight: '600',
   },
-  settingsBtn: {
+
+  // Feature Panels (Security Response & Lighting)
+  featurePanel: {
+    backgroundColor: COLORS.bgCard,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 16,
+  },
+  panelHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
+  panelIcon: {
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: 'rgba(139, 92, 246, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  panelIconSecurity: {
+    backgroundColor: 'rgba(255, 69, 58, 0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(139, 92, 246, 0.2)',
+    borderColor: 'rgba(255, 69, 58, 0.2)',
   },
-  settingsIcon: {
-    fontSize: 20,
-  },
-  lastUpdate: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-    marginTop: 16,
-    fontWeight: '500',
-  },
-  syncingBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(139, 92, 246, 0.12)',
-    marginHorizontal: 24,
-    marginTop: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    gap: 8,
+  panelIconLighting: {
+    backgroundColor: 'rgba(255, 179, 71, 0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(139, 92, 246, 0.2)',
+    borderColor: 'rgba(255, 179, 71, 0.2)',
   },
-  syncingText: {
-    color: COLORS.accentVioletLight,
-    fontSize: 12,
-    fontWeight: '600',
+  panelIconText: {
+    fontSize: 18,
   },
-  card: {
-    backgroundColor: COLORS.cardBg,
-    marginHorizontal: 24,
-    marginTop: 20,
-    borderRadius: 24,
-    borderWidth: 1,
-    shadowOffset: { width: 0, height: 8 },
-    shadowRadius: 24,
-    elevation: 10,
-    overflow: 'hidden',
-  },
-  cardAccent: {
-    height: 3,
-    width: '100%',
-    opacity: 0.6,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    paddingBottom: 0,
-  },
-  cardHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
+  panelHeaderText: {
     flex: 1,
   },
-  iconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  iconCircleActive: {
-    backgroundColor: 'rgba(248, 113, 113, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(248, 113, 113, 0.3)',
-  },
-  iconCircleInactive: {
-    backgroundColor: 'rgba(139, 92, 246, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(139, 92, 246, 0.2)',
-  },
-  iconCircleLight: {
-    backgroundColor: 'rgba(251, 191, 36, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(251, 191, 36, 0.3)',
-  },
-  iconCircleDark: {
-    backgroundColor: 'rgba(139, 92, 246, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(139, 92, 246, 0.2)',
-  },
-  cardIcon: {
-    fontSize: 26,
-  },
-  cardTitle: {
-    fontSize: 17,
+  panelTitle: {
+    fontSize: 15,
     fontWeight: '700',
-    color: COLORS.text,
-    letterSpacing: -0.3,
+    color: COLORS.textPrimary,
   },
-  cardStatus: {
-    fontSize: 13,
-    fontWeight: '600',
+  panelSubtitle: {
+    fontSize: 11,
+    color: COLORS.textTertiary,
     marginTop: 2,
   },
-  sensorValueBadge: {
+  panelVisual: {
+    backgroundColor: COLORS.bgSecondary,
+    borderRadius: 14,
+    padding: 20,
+    alignItems: 'center',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+  },
+  panelVisualEmoji: {
+    fontSize: 40,
+    marginBottom: 8,
+  },
+  panelVisualStatus: {
+    fontSize: 16,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  panelVisualLabel: {
+    fontSize: 12,
+    color: COLORS.textTertiary,
+  },
+  actuatorList: {
+    gap: 10,
+  },
+  actuatorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    backgroundColor: COLORS.bgSecondary,
     borderRadius: 14,
     borderWidth: 1,
+    borderColor: COLORS.borderLight,
   },
-  badgeActive: {
-    backgroundColor: 'rgba(248, 113, 113, 0.12)',
-    borderColor: 'rgba(248, 113, 113, 0.3)',
-  },
-  badgeInactive: {
-    backgroundColor: 'rgba(139, 92, 246, 0.08)',
-    borderColor: 'rgba(139, 92, 246, 0.15)',
-  },
-  badgeLight: {
-    backgroundColor: 'rgba(251, 191, 36, 0.12)',
-    borderColor: 'rgba(251, 191, 36, 0.3)',
-  },
-  badgeDark: {
-    backgroundColor: 'rgba(139, 92, 246, 0.08)',
-    borderColor: 'rgba(139, 92, 246, 0.15)',
-  },
-  sensorValue: {
-    fontSize: 22,
-    fontWeight: '800',
-    fontVariant: ['tabular-nums'],
-  },
-  divider: {
-    height: 1,
-    backgroundColor: 'rgba(139, 92, 246, 0.12)',
-    marginHorizontal: 20,
-    marginTop: 16,
-  },
-  controlsSection: {
-    padding: 20,
-    gap: 16,
-  },
-  controlsLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: COLORS.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
-  },
-  controlRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  controlInfo: {
+  actuatorLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     flex: 1,
   },
-  controlIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
+  actuatorDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
   },
-  controlIcon: {
-    fontSize: 18,
-  },
-  ledIndicator: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 10,
-  },
-  controlName: {
+  actuatorName: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.text,
+    color: COLORS.textPrimary,
   },
-  controlHint: {
+  actuatorDesc: {
     fontSize: 11,
-    color: COLORS.textMuted,
+    color: COLORS.textTertiary,
     marginTop: 2,
   },
-  durationLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: COLORS.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
-    marginTop: 4,
+
+  // Metrics
+  metricsContainer: {
+    width: '100%',
+    gap: 12,
   },
-  durationRow: {
+  metricRow: {
     flexDirection: 'row',
-    gap: 10,
+    justifyContent: 'space-between',
+    marginBottom: 4,
   },
-  durationBtn: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(139, 92, 246, 0.15)',
-    backgroundColor: 'rgba(139, 92, 246, 0.05)',
-    alignItems: 'center',
-    position: 'relative',
+  metricLabel: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
   },
-  durationBtnActive: {
-    borderColor: COLORS.accentViolet,
-    backgroundColor: 'rgba(139, 92, 246, 0.2)',
-    shadowColor: COLORS.accentViolet,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 4,
+  metricValue: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
   },
-  durationBtnText: {
+  healthBar: {
+    width: '100%',
+    height: 6,
+    backgroundColor: COLORS.bgSecondary,
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  healthFill: {
+    height: '100%',
+    backgroundColor: COLORS.primary,
+    borderRadius: 3,
+  },
+
+  // Section Title
+  sectionTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: COLORS.textMuted,
+    color: COLORS.textSecondary,
+    marginBottom: 12,
+    marginTop: 8,
   },
-  durationBtnTextActive: {
-    color: COLORS.accentVioletLight,
-  },
-  durationActiveDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: COLORS.accentVioletLight,
-    position: 'absolute',
-    bottom: 6,
-  },
-  footer: {
-    marginHorizontal: 24,
-    marginTop: 24,
-    padding: 16,
-    borderRadius: 16,
-    backgroundColor: 'rgba(139, 92, 246, 0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(139, 92, 246, 0.1)',
+
+  // Sensors Grid
+  sensorsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
+    marginBottom: 16,
+  },
+  sensorCard: {
+    width: (width - 42) / 2,
+    backgroundColor: COLORS.bgCard,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 16,
+    padding: 14,
+  },
+  sensorHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  sensorName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+  },
+  liveDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: COLORS.primary,
+  },
+  actuatorBadge: {
+    fontSize: 8,
+    fontWeight: '700',
+    color: COLORS.textTertiary,
+    letterSpacing: 1,
+  },
+  sensorValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  sensorFooter: {
+    borderTopWidth: 1,
+    borderTopColor: COLORS.borderLight,
+    paddingTop: 8,
+  },
+  sensorMeta: {
+    fontSize: 10,
+    color: COLORS.textTertiary,
+  },
+  controlGroup: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: COLORS.borderLight,
+    paddingTop: 12,
+  },
+  controlLabel: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+  },
+
+  // Device Health
+  deviceGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 16,
+  },
+  deviceCard: {
+    width: (width - 52) / 2,
+    backgroundColor: COLORS.bgCard,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 16,
+    padding: 14,
+  },
+  deviceInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
+  },
+  deviceIcon: {
+    fontSize: 28,
+  },
+  deviceName: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+  },
+  deviceStatus: {
+    fontSize: 9,
+    color: COLORS.textTertiary,
+  },
+  deviceMetrics: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  deviceMetricText: {
+    fontSize: 9,
+    color: COLORS.textTertiary,
+  },
+
+  // Footer
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.bgCard,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 20,
+    padding: 14,
   },
   footerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 6,
   },
   footerDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: COLORS.accentVioletLight,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
   },
   footerText: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
+    fontSize: 9,
+    color: COLORS.textTertiary,
     fontWeight: '500',
   },
 });

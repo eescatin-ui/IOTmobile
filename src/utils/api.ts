@@ -4,7 +4,7 @@ import axios from 'axios';
 const SERVER_URL_KEY = 'serverUrl';
 const API_TOKEN_KEY = 'apiToken';
 const USER_DATA_KEY = 'userData';
-let serverUrl = 'http://192.168.1.250:8000/api';
+let serverUrl = 'http://192.168.254.104:8000/api';
 
 export const getServerUrl = async (): Promise<string> => {
   const saved = await AsyncStorage.getItem(SERVER_URL_KEY);
@@ -203,61 +203,4 @@ export const controlActuator = async (actuator: string, state: boolean): Promise
   }
 };
 
-export const postBuzzerDuration = async (duration: number): Promise<any> => {
-  const url = await getServerUrl();
-  const headers = await getAuthHeaders();
-
-  console.log(`📤 Setting buzzer duration to: ${duration}`);
-  console.log(`📤 URL: ${url}/actuators/duration`);
-  
-  try {
-    const response = await axios.post(
-      `${url}/actuators/duration`,
-      { duration },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          ...headers,
-        }
-      }
-    );
-
-    console.log('✅ Duration response:', response.data);
-    return response.data;
-  } catch (error) {
-    console.error('Error setting buzzer duration:', error);
-    if (axios.isAxiosError(error)) {
-      console.error('Response data:', error.response?.data);
-      console.error('Status code:', error.response?.status);
-      
-      // Return error data if available
-      if (error.response?.data) {
-        return error.response.data;
-      }
-    }
-    return { success: false, message: 'Failed to update buzzer duration' };
-  }
-};
-
-// Optional: Function to fetch buzzer duration (if needed in React Native)
-export const getBuzzerDuration = async (): Promise<any> => {
-  const url = await getServerUrl();
-  const headers = await getAuthHeaders();
-  
-  try {
-    const response = await axios.get(
-      `${url}/actuators/duration`,
-      {
-        headers: {
-          'Accept': 'application/json',
-          ...headers,
-        }
-      }
-    );
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching buzzer duration:', error);
-    return null;
-  }
-};
+// Buzzer duration is fixed at 4 seconds by Arduino hardware - no API endpoints needed
